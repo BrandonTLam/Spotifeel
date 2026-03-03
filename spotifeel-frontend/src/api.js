@@ -1,9 +1,20 @@
 const BASE = import.meta.env.VITE_API_BASE_URL;
 
-export async function fetchRecommendations({ mood, limit = 10 }) {
+export async function fetchRecommendations({
+  mood = "",
+  limit = 12,
+  mode = "mood",
+  excludeIds = [],
+  onlyIds = [],
+}) {
   const url = new URL(`${BASE}/recommendations`);
-  url.searchParams.set("mood", mood);
+
+  if (mood && mood.trim()) url.searchParams.set("mood", mood.trim());
   url.searchParams.set("limit", String(limit));
+  url.searchParams.set("mode", mode);
+
+  for (const id of onlyIds) url.searchParams.append("only_ids", id);
+  for (const id of excludeIds) url.searchParams.append("exclude_ids", id);
 
   const res = await fetch(url.toString());
   if (!res.ok) {
