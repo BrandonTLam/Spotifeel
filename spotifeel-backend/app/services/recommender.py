@@ -6,21 +6,22 @@ from zoneinfo import ZoneInfo
 LA_TZ = ZoneInfo("America/Los_Angeles")
 
 MOOD_PRESETS: Dict[str, Dict[str, float]] = {
-    "happy":   {"target_valence": 0.85, "target_energy": 0.80, "target_danceability": 0.75, "target_tempo": 125},
-    "sad":     {"target_valence": 0.15, "target_energy": 0.30, "target_danceability": 0.35, "target_tempo": 90},
-    "calm":    {"target_valence": 0.55, "target_energy": 0.25, "target_danceability": 0.35, "target_tempo": 80},
-    "chill":   {"target_valence": 0.60, "target_energy": 0.45, "target_danceability": 0.55, "target_tempo": 105},
-    "angry":   {"target_valence": 0.25, "target_energy": 0.90, "target_danceability": 0.55, "target_tempo": 140},
-    "focus":   {"target_valence": 0.55, "target_energy": 0.40, "target_danceability": 0.30, "target_tempo": 95},
+    "excited":   {"target_valence": 0.86, "target_energy": 0.88, "target_danceability": 0.70, "target_tempo": 140},
+    "happy":     {"target_valence": 0.80, "target_energy": 0.65, "target_danceability": 0.65, "target_tempo": 118},
+    "sad":       {"target_valence": 0.15, "target_energy": 0.28, "target_danceability": 0.30, "target_tempo": 85},
+    "chill":     {"target_valence": 0.55, "target_energy": 0.40, "target_danceability": 0.60, "target_tempo": 102},
+    "mellow":    {"target_valence": 0.50, "target_energy": 0.30, "target_danceability": 0.40, "target_tempo": 90},
+    "sleep":     {"target_valence": 0.40, "target_energy": 0.12, "target_danceability": 0.12, "target_tempo": 65},
+    "romance":   {"target_valence": 0.70, "target_energy": 0.45, "target_danceability": 0.55, "target_tempo": 100},
+    "groovy":    {"target_valence": 0.70, "target_energy": 0.60, "target_danceability": 0.82, "target_tempo": 112},
+    "party":     {"target_valence": 0.85, "target_energy": 0.85, "target_danceability": 0.88, "target_tempo": 128},
+    "hype":      {"target_valence": 0.75, "target_energy": 0.92, "target_danceability": 0.72, "target_tempo": 145},
+    "workout":   {"target_valence": 0.60, "target_energy": 0.96, "target_danceability": 0.68, "target_tempo": 155},
+    "focus":     {"target_valence": 0.48, "target_energy": 0.35, "target_danceability": 0.22, "target_tempo": 92},
+    "anxious":   {"target_valence": 0.30, "target_energy": 0.75, "target_danceability": 0.45, "target_tempo": 150},
+    "angry":     {"target_valence": 0.18, "target_energy": 0.95, "target_danceability": 0.55, "target_tempo": 160},
+    "confident": {"target_valence": 0.72, "target_energy": 0.58, "target_danceability": 0.55, "target_tempo": 110},
 }
-
-def normalize_mood(mood: str) -> str:
-    m = (mood or "").strip().lower()
-    if not m:
-        return "chill"
-    aliases = {"relaxed": "calm", "relax": "calm", "rnb": "chill", "lofi": "focus", "study": "focus", "mad": "angry"}
-    m = aliases.get(m, m)
-    return m if m in MOOD_PRESETS else "chill"
 
 def context_adjust(preset: Dict[str, float]) -> Dict[str, float]:
     now = datetime.now(LA_TZ)
@@ -36,38 +37,3 @@ def context_adjust(preset: Dict[str, float]) -> Dict[str, float]:
         p["target_tempo"] = min(170, p["target_tempo"] + 4)
 
     return p
-
-def top_genres_from_artists(top_artists: Dict[str, Any], max_genres: int = 5) -> List[str]:
-    counts: Dict[str, int] = {}
-    for a in top_artists.get("items", []):
-        for g in a.get("genres", []):
-            counts[g] = counts.get(g, 0) + 1
-    ranked = sorted(counts.items(), key=lambda kv: kv[1], reverse=True)
-    return [g for g, _ in ranked[:max_genres]]
-
-def score_track(features: Dict[str, Any], target: Dict[str, float], popularity: int | None = None) -> float:
-    if not features:
-        return -1e9
-    try:
-        valence = float(features.get("valence", 0.0))
-        energy = float(features.get("energy", 0.0))
-        dance = float(features.get("danceability", 0.0))
-        tempo = float(features.get("tempo", 0.0))
-    except Exception:
-        return -1e9
-
-    tempo_n = min(1.0, max(0.0, tempo / 200.0))
-    target_tempo_n = min(1.0, max(0.0, float(target["target_tempo"]) / 200.0))
-
-    dv = abs(valence - float(target["target_valence"]))
-    de = abs(energy - float(target["target_energy"]))
-    dd = abs(dance - float(target["target_danceability"]))
-    dt = abs(tempo_n - target_tempo_n)
-
-    dist = (0.40 * dv) + (0.35 * de) + (0.15 * dd) + (0.10 * dt)
-
-    pop_bonus = 0.0
-    if popularity is not None:
-        pop_bonus = 0.05 * (min(100, max(0, popularity)) / 100.0)
-
-    return (1.0 - dist) + pop_bonus
