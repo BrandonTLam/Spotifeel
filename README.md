@@ -115,6 +115,16 @@ Get track recommendations based on mood, time, or random selection
 }
 ```
 
+### Spotify Auth Endpoints
+- `GET /spotify/auth/login`: Starts Spotify OAuth flow (redirects to Spotify login/consent).
+- `GET /spotify/auth/callback`: OAuth callback. Exchanges code for token, fetches profile, stores session on disk, and redirects to frontend `?tab=spotify`.
+- `GET /spotify/status`: Returns whether Spotify auth is configured and whether a user is connected.
+- `GET /spotify/me`: Returns the connected user profile (refreshes token if needed).
+- `POST /spotify/logout`: Clears stored Spotify session.
+
+Stored session location defaults to:
+- `spotifeel-backend/data/spotify_session.json`
+
 ## Mood Presets
 
 | Mood | Valence | Energy | Danceability | Tempo |
@@ -194,3 +204,19 @@ uvicorn app.main:app --reload
 cd spotifeel-frontend
 npm run dev    
 ```
+
+## Spotify OAuth Setup
+
+In `spotifeel-backend/.env`, set:
+
+```env
+FRONTEND_URL=http://localhost:5173
+SPOTIFY_CLIENT_ID=your_spotify_client_id
+SPOTIFY_CLIENT_SECRET=your_spotify_client_secret
+SPOTIFY_REDIRECT_URI=http://localhost:8000/spotify/auth/callback
+SPOTIFY_SCOPES=user-read-email user-read-private user-top-read user-read-recently-played
+SPOTIFY_SESSION_PATH=data/spotify_session.json
+```
+
+In your Spotify developer dashboard app settings, add this exact Redirect URI:
+- `http://localhost:8000/spotify/auth/callback`

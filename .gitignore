@@ -1,2 +1,6 @@
 __pycache__/
 node_modules/
+spotifeel-backend/data/
+spotifeel-frontend/dist/
+.env
+.env.local

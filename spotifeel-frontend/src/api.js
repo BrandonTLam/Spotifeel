@@ -23,3 +23,37 @@ export async function fetchRecommendations({
   }
   return res.json();
 }
+
+export function spotifyLoginUrl() {
+  return `${BASE}/spotify/auth/login`;
+}
+
+export async function fetchSpotifyStatus() {
+  const res = await fetch(`${BASE}/spotify/status`, { credentials: "include" });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`API error ${res.status}: ${text}`);
+  }
+  return res.json();
+}
+
+export async function fetchSpotifyData() {
+  const res = await fetch(`${BASE}/spotify/data`, { credentials: "include" });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`API error ${res.status}: ${text}`);
+  }
+  return res.json();
+}
+
+export async function spotifyLogout() {
+  const res = await fetch(`${BASE}/spotify/logout`, {
+    method: "POST",
+    credentials: "include",
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`API error ${res.status}: ${text}`);
+  }
+  return res.json();
+}

@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { fetchRecommendations } from "./api";
+import {
+  fetchRecommendations,
+  fetchSpotifyData,
+  spotifyLoginUrl,
+  spotifyLogout,
+} from "./api";
 import "./App.css";
 
 const LETTERS = [
@@ -114,6 +119,7 @@ function ModeSegmented({ value, onChange }) {
       { value: "daily", label: "Daily Mix" },
       { value: "mood", label: "Mood" },
       { value: "time", label: "Time-Based" },
+      { value: "spotify", label: "Spotify" },
     ],
     []
   );
@@ -121,7 +127,7 @@ function ModeSegmented({ value, onChange }) {
   const idx = Math.max(0, items.findIndex((x) => x.value === value));
 
   return (
-    <div className="segmented" style={{ "--segIndex": idx }}>
+    <div className="segmented" style={{ "--segIndex": idx, "--segCount": items.length }}>
       <div className="segPill" />
       {items.map((it) => (
         <button
@@ -184,7 +190,13 @@ export default function App() {
     []
   );
 
-  const [mode, setMode] = useState("daily");
+  const [mode, setMode] = useState(() => {
+    const qMode = new URLSearchParams(window.location.search).get("tab");
+    if (qMode === "daily" || qMode === "mood" || qMode === "time" || qMode === "spotify") {
+      return qMode;
+    }
+    return "daily";
+  });
   const [selectedMood, setSelectedMood] = useState("");
 
   const [err, setErr] = useState("");
@@ -192,6 +204,15 @@ export default function App() {
   const [dailyData, setDailyData] = useState(() => readDailyCache());
   const [timeData, setTimeData] = useState(null);
   const [moodData, setMoodData] = useState(null);
+  const [spotifyData, setSpotifyData] = useState({
+    configured: false,
+    connected: false,
+    profile: null,
+    top_tracks: [],
+    liked_tracks: [],
+    recently_played: [],
+    warnings: [],
+  });
 
   const [timeInfo, setTimeInfo] = useState(() => readTimeCache() ?? { mood: "", bucket: "", expires: 0 });
 
@@ -201,6 +222,8 @@ export default function App() {
 
   const [dailyRefreshBusy, setDailyRefreshBusy] = useState(false);
   const [moodRefreshBusy, setMoodRefreshBusy] = useState(false);
+  const [spotifyRefreshBusy, setSpotifyRefreshBusy] = useState(false);
+  const [spotifyLoading, setSpotifyLoading] = useState(false);
 
   const [moodSelectBusy, setMoodSelectBusy] = useState(false);
   const [timeSelectBusy, setTimeSelectBusy] = useState(false);
@@ -270,6 +293,19 @@ export default function App() {
     }
   }
 
+  async function loadSpotify() {
+    setErr("");
+    setSpotifyLoading(true);
+    try {
+      const json = await fetchSpotifyData();
+      setSpotifyData(json);
+    } catch (e) {
+      setErr(e?.message || "Something went wrong");
+    } finally {
+      setSpotifyLoading(false);
+    }
+  }
+
   useEffect(() => {
     const cached = dailyData;
     if (cached?.tracks?.length === 12) {
@@ -281,6 +317,28 @@ export default function App() {
       loadDaily();
     }
     return () => clearTimers();
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const qMode = params.get("tab");
+    const spotifyFlag = params.get("spotify");
+
+    if (qMode === "spotify") {
+      setMode("spotify");
+      loadSpotify();
+    }
+
+    if (spotifyFlag === "error" || spotifyFlag === "token_error" || spotifyFlag === "state_mismatch") {
+      setErr("Spotify authentication failed. Please try connecting again.");
+    }
+
+    if (qMode || spotifyFlag) {
+      params.delete("tab");
+      params.delete("spotify");
+      const next = `${window.location.pathname}${params.toString() ? `?${params}` : ""}`;
+      window.history.replaceState({}, "", next);
+    }
   }, []);
 
   useEffect(() => {
@@ -324,6 +382,13 @@ export default function App() {
         cancelled = true;
       };
     }
+
+    if (mode === "spotify") {
+      if (!spotifyData.connected && !spotifyLoading) {
+        loadSpotify();
+      }
+      return;
+    }
   }, [mode, timeData, dailyData]);
 
   useEffect(() => {
@@ -343,9 +408,45 @@ export default function App() {
 
   const activeData = mode === "daily" ? dailyData : mode === "time" ? timeData : moodData;
   const showMoodRefresh = mode === "mood" && Boolean(moodData?.tracks?.length);
+  const showSpotifyRefresh = mode === "spotify" && spotifyData.connected;
   const timeMoodLabel = mode === "time" && timeInfo?.mood ? String(timeInfo.mood).toUpperCase() : "…";
+  const spotifyProfile = spotifyData?.profile;
+  const spotifyWarnings = Array.isArray(spotifyData?.warnings) ? spotifyData.warnings : [];
 
   const hasBar = mode === "mood" || mode === "time";
+
+  function renderSpotifyTracks(title, tracks) {
+    return (
+      <section className="spotifySection">
+        <h3 className="spotifySectionTitle">{title}</h3>
+        {tracks?.length ? (
+          <ul className="spotifyTrackList">
+            {tracks.map((t, idx) => (
+              <li key={`${title}-${t.id || idx}`} className="spotifyTrackItem">
+                <div className="spotifyTrackMain">
+                  <div className="spotifyTrackName">{t.name || "Unknown track"}</div>
+                  <div className="spotifyTrackMeta">
+                    {(t.artists || []).join(", ") || "Unknown artist"}
+                    {t.album ? ` • ${t.album}` : ""}
+                  </div>
+                </div>
+                {t.spotify_url ? (
+                  <button
+                    className="spotifyActionBtn spotifyActionBtn--secondary"
+                    onClick={() => window.open(t.spotify_url, "_blank", "noopener,noreferrer")}
+                  >
+                    Open
+                  </button>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <div className="spotifyEmpty">No data returned for this section.</div>
+        )}
+      </section>
+    );
+  }
 
   return (
     <div className={`sfRoot ${hasBar ? "sfRoot--bar" : "sfRoot--noBar"}`}>
@@ -357,12 +458,13 @@ export default function App() {
       <div className="sfControls">
         <ModeSegmented value={mode} onChange={setMode} />
 
-        {(mode === "daily" || showMoodRefresh) ? (
+        {(mode === "daily" || showMoodRefresh || showSpotifyRefresh) ? (
           <button
             className="refreshBtn"
             disabled={
               (mode === "daily" && dailyLoading) ||
-              (mode === "mood" && (moodLoading || moodSelectBusy))
+              (mode === "mood" && (moodLoading || moodSelectBusy)) ||
+              (mode === "spotify" && (spotifyLoading || spotifyRefreshBusy))
             }
             onClick={async () => {
               if (mode === "daily") {
@@ -371,6 +473,16 @@ export default function App() {
                   await loadDaily({ excludeIds: dailySeenRef.current || [] });
                 } finally {
                   setDailyRefreshBusy(false);
+                }
+                return;
+              }
+
+              if (mode === "spotify") {
+                setSpotifyRefreshBusy(true);
+                try {
+                  await loadSpotify();
+                } finally {
+                  setSpotifyRefreshBusy(false);
                 }
                 return;
               }
@@ -388,6 +500,10 @@ export default function App() {
               ? dailyRefreshBusy
                 ? "Refreshing..."
                 : "Refresh"
+              : mode === "spotify"
+              ? spotifyRefreshBusy
+                ? "Refreshing..."
+                : "Refresh Spotify"
               : moodRefreshBusy
               ? "Refreshing..."
               : "Refresh"}
@@ -438,7 +554,64 @@ export default function App() {
 
       {err && <div className="error">{err}</div>}
 
-      <div className="gridWrap">{activeData?.tracks?.length ? <TrackGrid tracks={activeData.tracks} /> : <div />}</div>
+      {mode === "spotify" ? (
+        <div className="spotifyPanel">
+          {!spotifyData.configured ? (
+            <div className="spotifyMessage">
+              Spotify auth is not configured in backend `.env` yet.
+            </div>
+          ) : !spotifyData.connected ? (
+            <div className="spotifyMessage">
+              <div>Connect Spotify to load your top songs, liked songs, and recently played tracks.</div>
+              <button
+                className="spotifyActionBtn"
+                onClick={() => window.location.assign(spotifyLoginUrl())}
+              >
+                Connect Spotify
+              </button>
+            </div>
+          ) : (
+            <div className="spotifyInfo">
+              <div className="spotifyRow">
+                <span className="spotifyLabel">Logged In As</span>
+                <span className="spotifyValue">{spotifyProfile?.display_name || spotifyProfile?.id || "Spotify user"}</span>
+              </div>
+              {renderSpotifyTracks("Top Tracks", spotifyData.top_tracks)}
+              {renderSpotifyTracks("Liked Songs", spotifyData.liked_tracks)}
+              {renderSpotifyTracks("Recently Played", spotifyData.recently_played)}
+              {spotifyWarnings.length ? (
+                <div className="spotifyWarnings">
+                  {spotifyWarnings.map((w, i) => (
+                    <div key={`${w}-${i}`}>Note: {w}</div>
+                  ))}
+                </div>
+              ) : null}
+              <div className="spotifyActions">
+                <button
+                  className="spotifyActionBtn spotifyActionBtn--secondary"
+                  onClick={async () => {
+                    await spotifyLogout();
+                    setSpotifyData({
+                      configured: true,
+                      connected: false,
+                      profile: null,
+                      top_tracks: [],
+                      liked_tracks: [],
+                      recently_played: [],
+                      warnings: [],
+                    });
+                  }}
+                >
+                  Disconnect
+                </button>
+              </div>
+            </div>
+          )}
+          {spotifyLoading ? <div className="spotifyLoading">Loading Spotify data…</div> : null}
+        </div>
+      ) : (
+        <div className="gridWrap">{activeData?.tracks?.length ? <TrackGrid tracks={activeData.tracks} /> : <div />}</div>
+      )}
     </div>
   );
 }

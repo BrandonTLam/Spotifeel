@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import engine, Base
 from app.routers import recommendations
+from app.routers import spotify_auth
 
 app = FastAPI(title=settings.app_name)
 
@@ -25,3 +26,5 @@ async def health():
     return {"ok": True}
 
 app.include_router(recommendations.router)
+app.include_router(spotify_auth.router)
+app.include_router(spotify_auth.legacy_router)
