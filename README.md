@@ -195,12 +195,14 @@ spotifeel/
 
 ### Backend 
 ```bash
+cp .env.example .env
 cd spotifeel-backend
 uvicorn app.main:app --reload
 ```
 
 ### Frontend 
 ```bash
+cp .env.local.example .env.local
 cd spotifeel-frontend
 npm run dev    
 ```
