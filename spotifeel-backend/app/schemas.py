@@ -10,7 +10,8 @@ class TrackOut(BaseModel):
     spotify_url: str
 
     audio_features: Optional[Dict[str, Any]] = None
-
+    duration_ms: int | None = None
+    
     score: Optional[float] = None
 
 class RecommendationsOut(BaseModel):

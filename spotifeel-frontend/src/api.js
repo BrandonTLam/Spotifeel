@@ -46,6 +46,20 @@ export async function fetchSpotifyData() {
   return res.json();
 }
 
+export async function fetchSpotifyToken() {
+  const res = await fetch(`${BASE}/spotify/token`, {
+    credentials: "include",
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Failed to fetch token: ${text}`);
+  }
+
+  const data = await res.json();
+  return data.access_token;
+}
+
 export async function spotifyLogout() {
   const res = await fetch(`${BASE}/spotify/logout`, {
     method: "POST",

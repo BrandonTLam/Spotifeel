@@ -90,6 +90,7 @@ def _track_out(t: TrackFeature, score: float | None) -> TrackOut:
         popularity=t.popularity,
         spotify_uri=f"spotify:track:{t.track_id}",
         spotify_url=_spotify_url(t.track_id),
+        duration_ms=t.duration_ms,
         audio_features={
             "valence": t.valence,
             "energy": t.energy,

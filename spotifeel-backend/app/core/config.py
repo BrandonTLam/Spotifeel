@@ -20,7 +20,7 @@ class Settings(BaseSettings):
         validation_alias="SPOTIFY_REDIRECT_URI",
     )
     spotify_scopes: str = Field(
-        default="user-read-email user-read-private user-top-read user-library-read user-read-recently-played",
+        default="user-read-email user-read-private user-top-read user-library-read user-read-recently-played streaming user-modify-playback-state",
         validation_alias="SPOTIFY_SCOPES",
     )
     spotify_session_path: str = Field(

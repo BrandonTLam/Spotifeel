@@ -320,6 +320,15 @@ async def spotify_me():
     save_session(settings.spotify_session_path, session)
     return {"configured": True, "connected": True, "user": user}
 
+@router.get("/token")
+async def spotify_token():
+    _require_spotify_config()
+    session = load_session(settings.spotify_session_path)
+    if not session:
+        raise HTTPException(status_code=401, detail="Not logged in to Spotify.")
+    
+    token = await _refresh_token_if_needed(session)
+    return {"access_token": token["access_token"]}
 
 @router.post("/logout")
 def spotify_logout():

@@ -145,7 +145,7 @@ Stored session location defaults to:
 | angry | 0.18 | 0.95 | 0.55 | 160 |
 | confident | 0.72 | 0.58 | 0.55 | 110 |
 
-## 🕐 Time-Based Recommendations
+## Time-Based Recommendations
 The system automatically adjusts recommendations based on the time of day in Los Angeles timezone:
 | Time Range | Default Mood |
 |------------|--------------|
@@ -204,6 +204,7 @@ uvicorn app.main:app --reload
 cd spotifeel-frontend
 npm run dev    
 ```
+Copy and paste the link that is labeled "Local: " (ex: http://localhost:5173/) to any browser
 
 ## Spotify OAuth Setup
 
@@ -220,3 +221,27 @@ SPOTIFY_SESSION_PATH=data/spotify_session.json
 
 In your Spotify developer dashboard app settings, add this exact Redirect URI:
 - `http://localhost:8000/spotify/auth/callback`
+
+## How to Use Spotifeel
+
+Once the app is open in your browser, you'll see the **Spotifeel** logo at the top and a segmented tab bar to switch between modes.
+
+### Modes
+
+- **Daily Mix** — Your default view. Loads 12 curated tracks on first visit and caches them for the day. Hit **Refresh** to get a fresh batch (already-seen tracks are automatically excluded so you won't get repeats).
+
+- **Mood** — Use the dropdown to pick a mood (e.g. CHILL, HYPE, FOCUS). Tracks are fetched to match that vibe. Once results load, a **Refresh** button appears to get 12 new mood-matched tracks.
+
+- **Time-Based** — Automatically detects the current time of day (in 3-hour blocks) and picks a mood to match — no input needed. The mood label is shown in the bar below the tabs. Results refresh automatically every 3 hours.
+
+- **Spotify** — Connect your Spotify account to browse your **Top Tracks**, **Liked Songs**, and **Recently Played**. Hit **Connect Spotify** and authorize via the OAuth flow. Once connected, your library loads automatically.
+
+### Playing Tracks
+
+- **Click a track card** to open it directly in the Spotify app or web player.
+- If you have **Spotify Premium**, use the ▶ button on any card to stream the track right inside Spotifeel. Use **-5s / +5s** to skip backward or forward, and click the progress bar to seek.
+- Without Premium, clicking the play button will prompt you to open the track in Spotify instead.
+
+---
+
+
