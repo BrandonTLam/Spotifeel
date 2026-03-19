@@ -296,6 +296,82 @@ function CenterLoading({ text }) {
   );
 }
 
+function describeTrackFeatures(audio = {}) {
+  const tags = [];
+
+  if (typeof audio.energy === "number") {
+    if (audio.energy >= 0.7) tags.push("high energy");
+    else if (audio.energy <= 0.35) tags.push("calmer energy");
+  }
+
+  if (typeof audio.danceability === "number" && audio.danceability >= 0.7) {
+    tags.push("danceable feel");
+  }
+
+  if (typeof audio.tempo === "number") {
+    if (audio.tempo >= 125) tags.push("faster tempo");
+    else if (audio.tempo <= 95) tags.push("slower tempo");
+  }
+
+  if (typeof audio.valence === "number") {
+    if (audio.valence >= 0.65) tags.push("more upbeat mood");
+    else if (audio.valence <= 0.35) tags.push("more mellow mood");
+  }
+
+  return tags.slice(0, 2);
+}
+
+function buildWhyText(t, explainContext = {}, compact = false) {
+  const audio = t?.audio_features || {};
+  const featureTags = describeTrackFeatures(audio);
+
+  const mode = explainContext?.mode || "";
+  const selectedMood = (explainContext?.selectedMood || "").toLowerCase();
+  const apiMood = (explainContext?.apiMood || "").toLowerCase();
+  const spotifyPersonalized = Boolean(explainContext?.context?.spotify_personalized);
+
+  const shortTags = compact ? featureTags.slice(0, 1) : featureTags.slice(0, 2);
+  const featureText = shortTags.length ? ` • ${shortTags.join(", ")}` : "";
+
+  if (mode === "mood") {
+    const moodLabel = selectedMood || apiMood || "your mood";
+    if (compact) {
+      return spotifyPersonalized
+        ? `Matches ${moodLabel} + your Spotify taste${featureText}.`
+        : `Matches ${moodLabel}${featureText}.`;
+    }
+    return spotifyPersonalized
+      ? `Matches your ${moodLabel} mood and is similar to your Spotify preferences${featureText}.`
+      : `Matches your ${moodLabel} mood${featureText}.`;
+  }
+
+  if (mode === "time") {
+    const moodLabel = apiMood || "time-based vibe";
+    if (compact) {
+      return spotifyPersonalized
+        ? `Fits ${moodLabel} + your Spotify style${featureText}.`
+        : `Fits this time of day${featureText}.`;
+    }
+    return spotifyPersonalized
+      ? `Fits your ${moodLabel} vibe and your Spotify listening style${featureText}.`
+      : `Fits your current time of day${featureText}.`;
+  }
+
+  if (mode === "daily") {
+    return spotifyPersonalized
+      ? `Picked for variety while staying close to your Spotify taste profile${featureText}.`
+      : `Picked for variety${featureText}.`;
+  }
+
+  if (spotifyPersonalized) {
+    return `Similar to your Spotify preferences${featureText}.`;
+  }
+
+  return shortTags.length
+    ? `Good match${featureText}.`
+    : "Good match for your current recommendation settings.";
+}
+
 function TrackCard({
   t,
   deviceId,
@@ -312,6 +388,9 @@ function TrackCard({
   onBeginPlayRequest,
   onFinishPlayRequest,
   onFailPlayRequest,
+  explainContext,
+  isSpotify,
+  compactCard,
 }) {
   const trackUri = t.spotify_uri || t.uri;
   const trackKey = t.id || trackUri;
@@ -355,6 +434,7 @@ function TrackCard({
       : t.duration_ms || t.track?.duration_ms || t.item?.duration_ms || 0;
 
   const progressPercent = displayDuration > 0 ? (localProgress / displayDuration) * 100 : 0;
+  const whyText = !isSpotify ? buildWhyText(t, explainContext, compactCard) : "";
 
   const handleCardClick = () => {
     onOpenExternalTrack?.({
@@ -497,26 +577,35 @@ function TrackCard({
 
   return (
     <li className="card" onClick={handleCardClick}>
-      <div
-        className="trackTitle"
-        onClick={(e) => e.stopPropagation()}
-        onPointerDown={(e) => e.stopPropagation()}
-      >
-        {t.name ?? t.id}
-      </div>
-      <div className="trackMeta">
-        {t.audio_features ? (
-          <>
-            val {t.audio_features?.valence?.toFixed?.(2)} · en{" "}
-            {t.audio_features?.energy?.toFixed?.(2)} · da{" "}
-            {t.audio_features?.danceability?.toFixed?.(2)} · bpm{" "}
-            {t.audio_features?.tempo?.toFixed?.(0)}
-          </>
-        ) : (
-          <>
-            {(t.artists || []).join(", ")}
-            {t.album ? ` • ${t.album}` : ""}
-          </>
+      <div className={`cardText ${compactCard ? "cardText--compact" : ""}`}>
+        <div
+          className="trackTitle"
+          onClick={(e) => e.stopPropagation()}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          {t.name ?? t.id}
+        </div>
+
+        <div className="trackMeta">
+          {t.audio_features ? (
+            <>
+              val {t.audio_features?.valence?.toFixed?.(2)} · en{" "}
+              {t.audio_features?.energy?.toFixed?.(2)} · da{" "}
+              {t.audio_features?.danceability?.toFixed?.(2)} · bpm{" "}
+              {t.audio_features?.tempo?.toFixed?.(0)}
+            </>
+          ) : (
+            <>
+              {(t.artists || []).join(", ")}
+              {t.album ? ` • ${t.album}` : ""}
+            </>
+          )}
+        </div>
+
+        {!isSpotify && (
+          <div className="trackWhy">
+            <strong>Why:</strong> {whyText}
+          </div>
         )}
       </div>
 
@@ -568,6 +657,8 @@ function TrackGrid({
   onFinishPlayRequest,
   onFailPlayRequest,
   isSpotify,
+  explainContext,
+  compactCard,
 }) {
   return (
     <ul className={`grid ${isSpotify ? "spotifyGrid" : ""}`}>
@@ -589,6 +680,9 @@ function TrackGrid({
           onBeginPlayRequest={onBeginPlayRequest}
           onFinishPlayRequest={onFinishPlayRequest}
           onFailPlayRequest={onFailPlayRequest}
+          explainContext={explainContext}
+          isSpotify={isSpotify}
+          compactCard={compactCard}
         />
       ))}
     </ul>
@@ -1164,6 +1258,7 @@ export default function App() {
           onFinishPlayRequest={handlePlayAccepted}
           onFailPlayRequest={clearPendingPlay}
           isSpotify={true}
+          compactCard={false}
         />
       </section>
     );
@@ -1351,6 +1446,13 @@ export default function App() {
               onFinishPlayRequest={handlePlayAccepted}
               onFailPlayRequest={clearPendingPlay}
               isSpotify={false}
+              compactCard={mode === "mood" || mode === "time"}
+              explainContext={{
+                mode,
+                selectedMood,
+                apiMood: activeData?.mood,
+                context: activeData?.context,
+              }}
             />
           ) : (
             <div />

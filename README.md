@@ -1,6 +1,6 @@
 # Spotifeel
 
-A mood-based music recommendation engine that suggests Spotify tracks based on your emotional state, time of day, or generates daily mixes.
+A personalized, contextual music recommendation system that recommends Spotify tracks using mood, time of day, and Spotify listening history.
 
 ## Table of Contents
 
@@ -14,13 +14,15 @@ A mood-based music recommendation engine that suggests Spotify tracks based on y
 - [Recommendation Algorithm](#recommendation-algorithm)
 - [Project Structure](#project-structure)
 - [How To Run The Backend and Frontend](#how-to-run-the-backend-and-frontend)
+- [Spotify OAuth Setup](#spotify-oauth-setup)
+- [How to Use Spotifeel](#how-to-use-spotifeel)
 
 ## Features
 
-- **Mood-Based Recommendations**: Choose from 15 distinct moods (excited, happy, sad, chill, mellow, romance, groovy, party, hype, workout, focus, anxious, angry, confident, sleep)
-- **Time-Aware Suggestions**: Get recommendations that adapt to your current time of day (updates every 3 hours)
-- **Daily Mix**: Discover new tracks with a popularity-biased random selection that avoids recently played songs
-- **Smart Matching**: Uses audio features (valence, energy, danceability, tempo) to find the perfect tracks
+- **Dynamic Recommendation Engine**: Generates custom tracklists on the fly by evaluating complex emotional profiles, temporal context (time of day), and popularity-biased randomization to ensure fresh discovery.
+- **Smart Audio Matching**: Leverages Spotify's precise audio data (valence, energy, danceability, tempo) to algorithmically score, filter, and sort tracks to match exact criteria.
+- **Seamless Spotify Integration**: Utilizes full OAuth 2.0 authentication to securely connect accounts, pulling in user-specific data like Top Tracks, Liked Songs, and Recently Played history.
+- **In-App Premium Playback**: Allows Spotify Premium users to stream, skip, and seek through tracks directly from the web interface without needing to open a separate client.
 
 ## Tech Stack
 
@@ -195,15 +197,15 @@ spotifeel/
 
 ### Backend 
 ```bash
-cp .env.example .env
 cd spotifeel-backend
+cp .env.example .env
 uvicorn app.main:app --reload
 ```
 
 ### Frontend 
 ```bash
-cp .env.local.example .env.local
 cd spotifeel-frontend
+cp .env.local.example .env.local
 npm run dev    
 ```
 Copy and paste the link that is labeled "Local: " (ex: http://localhost:5173/) to any browser

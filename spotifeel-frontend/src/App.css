@@ -577,3 +577,14 @@
 .modalActionBtn:hover {
   opacity: 0.9;
 }
+
+.trackWhy {
+  margin-top: 3px;
+  font-size: 0.72rem;
+  line-height: 1.35;
+  opacity: 0.92;
+}
+
+.trackWhy strong {
+  font-weight: 700;
+}
