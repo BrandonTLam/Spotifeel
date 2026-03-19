@@ -289,6 +289,9 @@ async def spotify_data():
     if profile:
         session["user"] = profile
         session["saved_at"] = int(time.time())
+        session["top_track_ids"] = [t["id"] for t in top_tracks if t and t.get("id")]
+        session["liked_track_ids"] = [t["id"] for t in liked_tracks if t and t.get("id")]
+        session["recent_track_ids"] = [t["id"] for t in recently_played if t and t.get("id")]
         save_session(settings.spotify_session_path, session)
 
     return {
