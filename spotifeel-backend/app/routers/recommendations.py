@@ -265,10 +265,10 @@ async def recommend(
         if spotify_tgt:
             preset_tgt = _target_from_mood(m, adjust_for_time=True)
             tgt = {
-                "valence":  0.6 * spotify_tgt["valence"] + 0.4 * preset_tgt["valence"],
-                "energy":   0.6 * spotify_tgt["energy"]  + 0.4 * preset_tgt["energy"],
-                "dance":    0.6 * spotify_tgt["dance"]   + 0.4 * preset_tgt["dance"],
-                "tempo":    0.6 * spotify_tgt["tempo"]   + 0.4 * preset_tgt["tempo"],
+                "valence":  0.75 * spotify_tgt["valence"] + 0.25 * preset_tgt["valence"],
+                "energy":   0.75 * spotify_tgt["energy"]  + 0.25 * preset_tgt["energy"],
+                "dance":    0.75 * spotify_tgt["dance"]   + 0.25 * preset_tgt["dance"],
+                "tempo":    0.75 * spotify_tgt["tempo"]   + 0.25 * preset_tgt["tempo"],
             }
             mode_used = "time+spotify"
         else:
@@ -286,10 +286,10 @@ async def recommend(
         
         if spotify_tgt:
             tgt = {
-                "valence": 0.5 * spotify_tgt["valence"] + 0.5 * tgt["valence"],
-                "energy":  0.5 * spotify_tgt["energy"]  + 0.5 * tgt["energy"],
-                "dance":   0.5 * spotify_tgt["dance"]   + 0.5 * tgt["dance"],
-                "tempo":   0.5 * spotify_tgt["tempo"]   + 0.5 * tgt["tempo"],
+                "valence": 0.6 * spotify_tgt["valence"] + 0.4 * tgt["valence"],
+                "energy":  0.6 * spotify_tgt["energy"]  + 0.4 * tgt["energy"],
+                "dance":   0.6 * spotify_tgt["dance"]   + 0.4 * tgt["dance"],
+                "tempo":   0.6 * spotify_tgt["tempo"]   + 0.4 * tgt["tempo"],
             }
             mode_used = "mood+spotify"
             
