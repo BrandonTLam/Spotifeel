@@ -11,9 +11,10 @@ from app.core.database import get_db
 from app.models import TrackFeature
 from app.schemas import RecommendationsOut, TrackOut
 from app.services.recommender import MOOD_PRESETS, context_adjust, LA_TZ
+from app.core.config import settings
+from app.services.spotify_store import load_session
 
 router = APIRouter(prefix="", tags=["recommendations"])
-
 
 def _spotify_url(track_id: str) -> str:
     return f"https://open.spotify.com/track/{track_id}"
@@ -104,6 +105,27 @@ def _track_out(t: TrackFeature, score: float | None) -> TrackOut:
         score=score,
     )
 
+async def _target_from_spotify_tracks(
+    track_ids: list[str], db: AsyncSession) -> dict | None:
+    if not track_ids:
+        return None
+    rows = (
+        await db.execute(
+            select(TrackFeature).where(TrackFeature.track_id.in_(track_ids))
+        )
+    ).scalars().all()
+    if not rows:
+        return None
+
+    def avg(attr):
+        vals = [getattr(r, attr) for r in rows if getattr(r, attr) is not None]
+        return sum(vals) / len(vals) if vals else None
+
+    v, e, d, t = avg("valence"), avg("energy"), avg("danceability"), avg("tempo")
+    if any(x is None for x in [v, e, d, t]):
+        return None
+    return {"valence": v, "energy": e, "dance": d, "tempo": t}
+
 
 @router.get("/recommendations", response_model=RecommendationsOut)
 async def recommend(
@@ -115,6 +137,14 @@ async def recommend(
     exclude_ids: list[str] | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
 ):
+    
+    session = load_session(settings.spotify_session_path)
+    spotify_connected = bool(session and session.get("token"))
+    recent_ids  = list(session.get("recent_track_ids", []))[:50] if spotify_connected else []
+    top_ids     = list(session.get("top_track_ids", []))[:20]    if spotify_connected else []
+    liked_ids   = list(session.get("liked_track_ids", []))[:20]  if spotify_connected else []
+    effective_exclude = list(set((exclude_ids or []) + recent_ids))
+
     raw_mood = (mood or "").strip()
     mode_in = (mode or "mood").strip().lower()
     if mode_in not in {"mood", "time", "random"}:
@@ -227,14 +257,45 @@ async def recommend(
     if mode_in == "time" or not raw_mood:
         inferred = TIME_BUCKET_TO_MOOD[bucket]
         m = inferred
-        tgt = _target_from_mood(m, adjust_for_time=True)
-        mode_used = "time"
-    else:
-         m = (raw_mood or "").strip().lower()
-         if m not in MOOD_PRESETS:
+        
+        spotify_tgt = None
+        if spotify_connected and (top_ids or liked_ids):
+            spotify_tgt = await _target_from_spotify_tracks(top_ids + liked_ids, db)
+        
+        if spotify_tgt:
+            preset_tgt = _target_from_mood(m, adjust_for_time=True)
+            tgt = {
+                "valence":  0.6 * spotify_tgt["valence"] + 0.4 * preset_tgt["valence"],
+                "energy":   0.6 * spotify_tgt["energy"]  + 0.4 * preset_tgt["energy"],
+                "dance":    0.6 * spotify_tgt["dance"]   + 0.4 * preset_tgt["dance"],
+                "tempo":    0.6 * spotify_tgt["tempo"]   + 0.4 * preset_tgt["tempo"],
+            }
+            mode_used = "time+spotify"
+        else:
+            tgt = _target_from_mood(m, adjust_for_time=True)
+            mode_used = "time"
+
+    if mode_in == "mood":
+        m = raw_mood.strip().lower()
+        if m not in MOOD_PRESETS:
             m = "chill"
-         tgt = _target_from_mood(m, adjust_for_time=False)
-         mode_used = "mood"
+
+        spotify_tgt = None
+        if spotify_connected and (top_ids or liked_ids):
+            spotify_tgt = await _target_from_spotify_tracks(top_ids + liked_ids, db)            
+        
+        if spotify_tgt:
+            tgt = {
+                "valence": 0.5 * spotify_tgt["valence"] + 0.5 * tgt["valence"],
+                "energy":  0.5 * spotify_tgt["energy"]  + 0.5 * tgt["energy"],
+                "dance":   0.5 * spotify_tgt["dance"]   + 0.5 * tgt["dance"],
+                "tempo":   0.5 * spotify_tgt["tempo"]   + 0.5 * tgt["tempo"],
+            }
+            mode_used = "mood+spotify"
+            
+        else:
+            tgt = _target_from_mood(m, adjust_for_time=False)
+            mode_used = "mood"
 
     dist = (
         0.40 * func.abs(TrackFeature.valence - tgt["valence"])
@@ -243,7 +304,7 @@ async def recommend(
         + 0.05 * func.abs((TrackFeature.tempo / 200.0) - (tgt["tempo"] / 200.0))
     )
 
-    candidate_n = 20000 if (exclude_ids and len(exclude_ids) > 0) else 7000
+    candidate_n = 20000 if effective_exclude else 7000
     rows = (await db.execute(stmt.order_by(dist.asc()).limit(candidate_n))).scalars().all()
 
     if not rows:
@@ -264,7 +325,7 @@ async def recommend(
         out.append(_track_out(t, score=score))
         return True
 
-    if exclude_ids and len(exclude_ids) > 0:
+    if effective_exclude:
         pool_n = min(2500, len(ranked))
         pool = ranked[:pool_n]
         random.shuffle(pool)
@@ -287,6 +348,8 @@ async def recommend(
 
     context = {
         "mode_used": mode_used,
+        "spotify_personalized": spotify_connected and bool(top_ids or liked_ids),
+        "recent_tracks_excluded": len(recent_ids),
         "market": market,
         "target": tgt,
         "exclude_ids_applied": bool(exclude_ids),
